@@ -9,16 +9,17 @@ import (
 )
 
 type Config struct {
-	StoragePath string        `json:"storagePath"`
-	TTL         time.Duration `json:"ttl"`
-	Addr        string        `json:"addr"`
-	Port        int           `json:"port"`
+	StoragePath  string        `json:"storagePath"`
+	TTL          time.Duration `json:"ttl"`
+	Addr         string        `json:"addr"`
+	Port         int           `json:"port"`
+	CleaningTime time.Duration `json:"cleaningTime"`
 }
 
 type App struct {
 	Config  Config
 	Logger  *logrus.Logger
-	LinkMap map[string]string
+	LinkMap map[string]map[string]time.Time
 }
 
 func NewConfig(configPath string) *App {
@@ -40,6 +41,6 @@ func NewConfig(configPath string) *App {
 	return &App{
 		Config:  config,
 		Logger:  logger,
-		LinkMap: make(map[string]string),
+		LinkMap: make(map[string]map[string]time.Time),
 	}
 }

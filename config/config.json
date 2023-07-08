@@ -2,5 +2,6 @@
     "storagePath": "/Users/ilabukanov/Documents/mail",
     "ttl": 60,
     "addr": "localhost",
-    "port": 8080
+    "port": 8080,
+    "cleaningTime": 120
   }
