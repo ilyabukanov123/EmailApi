@@ -3,21 +3,21 @@ package handlers
 import (
 	"archive/zip"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/ilyabukanov123/api-mail/internal/config"
+	"github.com/ilyabukanov123/api-mail/internal/lib/wpsev"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/ilyabukanov123/api-mail/internal/config"
-	"github.com/ilyabukanov123/api-mail/internal/lib/wpsev"
 )
 
 type ApiEmailService interface {
 	NewUsernameEmail(w http.ResponseWriter, r *http.Request) (string, error)
 	GetUsername()
 	GetArchiveUsername()
+	StartCleanup()
 }
 
 type Handler struct {
@@ -25,13 +25,17 @@ type Handler struct {
 	app             config.App
 }
 
+// Creating a Routine Handler
 func New(config config.App) *Handler {
 	return &Handler{
 		app: config,
 	}
 }
 
+// Generating a link to retrieve an archive by specific mail
 func (h *Handler) NewUsernameEmail(w http.ResponseWriter, r *http.Request) {
+	h.app.Config.Mu.Lock()
+	defer h.app.Config.Mu.Unlock()
 	username := wpsev.GetParam(r, "username")
 	uuid := generateUUID()
 	h.app.Logger.Infof("\nURL: %s \nMethod: %s \nUsername: %s \nUUID: %s", r.URL.Path, r.Method, username, uuid)
@@ -40,20 +44,26 @@ func (h *Handler) NewUsernameEmail(w http.ResponseWriter, r *http.Request) {
 	h.app.LinkMap[uuid] = make(map[string]time.Time)
 	h.app.LinkMap[uuid][username] = newTime
 	w.Write([]byte("Уникальная ссылка: /get/" + uuid))
-	timer := time.NewTimer(h.app.Config.TTL * time.Second)
-	go func() {
-		<-timer.C
-		delete(h.app.LinkMap, uuid)
-	}()
+	//timer := time.NewTimer(h.app.Config.TTL * time.Second)
+	//go func() {
+	//	<-timer.C
+	//	delete(h.app.LinkMap, uuid)
+	//}()
 }
 
+// Getting all elements in the map
 func (h *Handler) GetUsername(w http.ResponseWriter, r *http.Request) {
+	h.app.Config.Mu.Lock()
+	defer h.app.Config.Mu.Unlock()
 	for key, value := range h.app.LinkMap {
 		h.app.Logger.Infof("Key: %s Value: %s", key, value)
 	}
 }
 
+// Receiving the archive by concrete mail
 func (h *Handler) GetArchiveUsername(w http.ResponseWriter, r *http.Request) {
+	h.app.Config.Mu.Lock()
+	defer h.app.Config.Mu.Unlock()
 	link := wpsev.GetParam(r, "link")
 	h.app.Logger.Infof("\nURL: %s \nMethod: %s\nUUID: %s", r.URL.Path, r.Method, link)
 	username, ok := h.app.LinkMap[link]
@@ -64,13 +74,21 @@ func (h *Handler) GetArchiveUsername(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var email string
-	for _, valueLinkMap := range h.app.LinkMap {
+	for keyLinkMap, valueLinkMap := range h.app.LinkMap {
 		for key, _ := range valueLinkMap {
 			for keyUsername := range username {
-				if key == keyUsername {
+				if time.Now().After(h.app.LinkMap[keyLinkMap][keyUsername]) {
+					delete(h.app.LinkMap, keyLinkMap)
+					http.Error(w, "The lifetime of the link has expired ", http.StatusBadRequest)
+					return
+				} else if key == keyUsername {
 					email = key
+					break
 				}
 			}
+		}
+		if len(email) != 0 {
+			break
 		}
 	}
 
@@ -143,12 +161,13 @@ func (h *Handler) GetArchiveUsername(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+zipName)
 	http.ServeFile(w, r, zipPath)
 
-	//err = os.Remove(zipPath)
-	//if err != nil {
-	//	h.app.Logger.Errorf("Failed to remove archive: %s", err)
-	//}
+	err = os.Remove(zipPath)
+	if err != nil {
+		h.app.Logger.Errorf("Failed to remove archive: %s", err)
+	}
 }
 
+// Creating uuid
 func generateUUID() string {
 	//uuid := make([]byte, 16)
 	//_, _ = rand.Read(uuid)
@@ -156,4 +175,22 @@ func generateUUID() string {
 
 	u := uuid.New()
 	return u.String()
+}
+
+// Clearing elements in the map according to a certain period
+func (h *Handler) StartCleanup(interval time.Duration) {
+	go func() {
+		for {
+			h.app.Config.Mu.Lock()
+			for keyLinkMap, valueLinkMap := range h.app.LinkMap {
+				for key, _ := range valueLinkMap {
+					if time.Now().After(h.app.LinkMap[keyLinkMap][key]) {
+						delete(h.app.LinkMap, keyLinkMap)
+					}
+				}
+			}
+			h.app.Config.Mu.Unlock()
+			time.Sleep(interval)
+		}
+	}()
 }
