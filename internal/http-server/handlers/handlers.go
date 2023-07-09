@@ -2,14 +2,16 @@ package handlers
 
 import (
 	"archive/zip"
-	"github.com/google/uuid"
-	"github.com/ilyabukanov123/api-mail/internal/config"
-	"github.com/ilyabukanov123/api-mail/internal/lib/wpsev"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/ilyabukanov123/api-mail/internal/config"
+	"github.com/ilyabukanov123/api-mail/internal/lib/wpsev"
 )
 
 type ApiEmailService interface {
@@ -33,7 +35,10 @@ func (h *Handler) NewUsernameEmail(w http.ResponseWriter, r *http.Request) {
 	username := wpsev.GetParam(r, "username")
 	uuid := generateUUID()
 	h.app.Logger.Infof("\nURL: %s \nMethod: %s \nUsername: %s \nUUID: %s", r.URL.Path, r.Method, username, uuid)
-	h.app.LinkMap[uuid] = username
+	currentTime := time.Now()
+	newTime := currentTime.Add(h.app.Config.TTL * time.Second)
+	h.app.LinkMap[uuid] = make(map[string]time.Time)
+	h.app.LinkMap[uuid][username] = newTime
 	w.Write([]byte("Уникальная ссылка: /get/" + uuid))
 	timer := time.NewTimer(h.app.Config.TTL * time.Second)
 	go func() {
@@ -52,14 +57,27 @@ func (h *Handler) GetArchiveUsername(w http.ResponseWriter, r *http.Request) {
 	link := wpsev.GetParam(r, "link")
 	h.app.Logger.Infof("\nURL: %s \nMethod: %s\nUUID: %s", r.URL.Path, r.Method, link)
 	username, ok := h.app.LinkMap[link]
+
 	if !ok {
 		http.Error(w, "Invalid link", http.StatusBadRequest)
 		return
 	}
 
-	folderPath := filepath.Join(h.app.Config.StoragePath, username)
+	var email string
+	for _, valueLinkMap := range h.app.LinkMap {
+		for key, _ := range valueLinkMap {
+			for keyUsername := range username {
+				if key == keyUsername {
+					email = key
+				}
+			}
+		}
+	}
 
-	zipName := username + ".zip"
+	folderPath := filepath.Join(h.app.Config.StoragePath, email)
+	fmt.Println(folderPath)
+
+	zipName := email + ".zip"
 	zipPath := filepath.Join(h.app.Config.StoragePath, zipName)
 	zipFile, err := os.Create(zipPath)
 	if err != nil {
@@ -125,10 +143,10 @@ func (h *Handler) GetArchiveUsername(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+zipName)
 	http.ServeFile(w, r, zipPath)
 
-	err = os.Remove(zipPath)
-	if err != nil {
-		h.app.Logger.Errorf("Failed to remove archive: %s", err)
-	}
+	//err = os.Remove(zipPath)
+	//if err != nil {
+	//	h.app.Logger.Errorf("Failed to remove archive: %s", err)
+	//}
 }
 
 func generateUUID() string {
