@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/ilyabukanov123/api-mail/internal/config"
 	"github.com/ilyabukanov123/api-mail/internal/http-server/handlers"
+	"github.com/ilyabukanov123/api-mail/internal/http-server/middlewares"
 	"github.com/ilyabukanov123/api-mail/internal/lib/wpsev"
 	"net/http"
 	"os"
@@ -26,7 +27,7 @@ func Start(configPath string) {
 	myServer := wpsev.NewServer(hs, wpsev.HTTP3)
 
 	// Registration of Roots and Handlers for Processing
-	myServer.AddRouter(http.MethodPost, "/*username", middleware, handler.NewUsernameEmail)
+	myServer.AddRouter(http.MethodPost, "/*username", middlewares.StaticAuthMiddleware(app, http.HandlerFunc(handler.NewUsernameEmail)))
 	myServer.AddRouter(http.MethodGet, "/get", middleware, handler.GetUsername)
 	myServer.AddRouter(http.MethodGet, "/get/*link", middleware, handler.GetArchiveUsername)
 

@@ -11,12 +11,13 @@ import (
 
 // JSON config structure
 type Config struct {
-	StoragePath  string        `json:"storagePath"`  // the path to the directory with the emails
-	TTL          time.Duration `json:"ttl"`          // reference lifetime
-	Addr         string        `json:"addr"`         // server address
-	Port         int           `json:"port"`         // server port
-	CleaningTime time.Duration `json:"cleaningTime"` // the interval of clearing elements with expired ttl
-	Mu           sync.Mutex
+	StoragePath        string        `json:"storagePath"`  // the path to the directory with the emails
+	TTL                time.Duration `json:"ttl"`          // reference lifetime
+	Addr               string        `json:"addr"`         // server address
+	Port               int           `json:"port"`         // server port
+	CleaningTime       time.Duration `json:"cleaningTime"` // the interval of clearing elements with expired ttl
+	AuthorizationToken string        `json:"authorizationToken"`
+	Mu                 sync.Mutex
 }
 
 type App struct {

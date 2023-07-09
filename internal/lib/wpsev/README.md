@@ -13,7 +13,7 @@
 func main() {
 
 middleware := func(w http.ResponseWriter, r *http.Request) {
-w.Write([]byte("this middleware\n"))
+w.Write([]byte("this middlewares\n"))
 }
 
 hs := &http.Server{}

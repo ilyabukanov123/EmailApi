@@ -3,5 +3,7 @@
     "ttl": 30,
     "addr": "localhost",
     "port": 8080,
-    "cleaningTime": 40
-  }
+    "cleaningTime": 40,
+    "authorizationToken" : "Az7u1fzEFuI/gaDAEJDu7tMA4eVf9AH-iDGnIy9AvCZ1hv5kO/N4f?4dc3!8AYrT!DBfAcBmvinUi1o25UIrGaW0DtwInndU04gnuoFXrytAF4jrlfnHcJ=FsSvm=CdZNl39voYyjxF0UsGtkIXAL5c1EmYq2o9hivoegx9FBQ7dIIBdHmaHeMO/jdErWqHpkjJJ3Hfzy-ywjmg2Szr8gjz1UXePYGHFahX!/CZOorCoev7y3gRvZg8=7OGYwbVH"
+
+}
